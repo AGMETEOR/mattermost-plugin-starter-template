@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
 )
 
@@ -26,3 +27,38 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 }
 
 // See https://developers.mattermost.com/extend/plugins/server/reference/
+
+func (p *Plugin) OnActivate() error {
+	_, err := p.Helpers.EnsureBot(&model.Bot{
+		Username:    "somebot",
+		Description: "A bot to test MessageHasBeenPosted",
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Plugin) MessageHasBeenPosted(c *plugin.Context, post *model.Post) {
+	ok, err := p.Helpers.ShouldProcessMessage(
+		post,
+		//plugin.AllowSystemMessages(),
+		//plugin.AllowBots(),
+		//plugin.OnlyBotDMs(),
+		// The following two are not so easy to enable because you have to provide a list of real user/channel ids
+		//plugin.FilterChannelIDs(),
+		//plugin.FilterUserIDs(),
+	)
+
+	if err != nil {
+		p.API.LogError("failed to check message in MessageHasBeenPosted", "err", err)
+		return
+	}
+
+	if !ok {
+		return
+	}
+
+	p.API.LogWarn("A user posted a message", "user id", post.UserId)
+}
